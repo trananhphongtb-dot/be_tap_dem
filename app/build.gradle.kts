@@ -10,7 +10,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "vn.danhvan.tieuhoc"
+        applicationId = "vn.danhvan.tapdem"
         minSdk = 24
         targetSdk = 36
         versionCode = 1
