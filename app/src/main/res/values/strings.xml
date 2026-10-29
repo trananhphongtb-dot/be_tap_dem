@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tên app Bé Tập Đếm, chốt 2026-10-29. Gói vẫn giữ vn.danhvan.tieuhoc tạm thời. -->
+    <string name="app_name">Bé Tập Đếm</string>
+</resources>
