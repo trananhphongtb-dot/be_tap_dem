@@ -30,8 +30,10 @@ jobs:
       - name: Show signing certificate
         run: |
           keytool -list -v -keystore /tmp/upload.jks -storepass "${{ secrets.KEYSTORE_PASSWORD }}" -alias "${{ secrets.KEY_ALIAS }}" | grep -E "SHA1|SHA256" || true
-          ls $ANDROID_HOME/build-tools/*/apksigner 2>/dev/null | head -1
-          $ANDROID_HOME/build-tools/*/apksigner verify --print-certs app/build/outputs/apk/debug/*.apk 2>&1 | grep -E "Signer #1|SHA-256|SHA-1" || true
+          echo "APK files:"
+          ls -l app/build/outputs/apk/debug/
+          echo "APK signer (full output, no grep filter):"
+          /usr/local/lib/android/sdk/build-tools/34.0.0/apksigner verify --print-certs --verbose app/build/outputs/apk/debug/app-debug.apk
       - name: Build release AAB
         env:
           KEYSTORE_FILE: /tmp/upload.jks
@@ -39,6 +41,10 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: gradle bundleRelease --no-daemon --stacktrace
+      - name: Show AAB signing certificate
+        run: |
+          ls -l app/build/outputs/bundle/release/
+          jarsigner -verify -verbose -certs app/build/outputs/bundle/release/app-release.aab 2>&1 | head -40 || true
       - uses: actions/upload-artifact@v4
         with:
           name: BeTapDem-debug
