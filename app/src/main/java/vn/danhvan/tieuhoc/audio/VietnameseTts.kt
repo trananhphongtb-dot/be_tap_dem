@@ -17,6 +17,9 @@ class VietnameseTts(context: Context) {
     var ready = false
         private set
 
+    /** Công tắc âm thanh ở Cài đặt: tắt thì speak() không phát tiếng. */
+    var enabled: Boolean = true
+
     init {
         tts = TextToSpeech(context.applicationContext) { status ->
             if (status == TextToSpeech.SUCCESS) {
@@ -30,6 +33,7 @@ class VietnameseTts(context: Context) {
 
     /** Đọc 1 đoạn văn bản tiếng Việt. Nút "Nghe lại" ở mọi chặng gọi hàm này. */
     fun speak(text: String) {
+        if (!enabled) return
         val engine = tts ?: return
         // Đảm bảo lại Locale vi-VN trước mỗi lần đọc, tránh máy tự đổi Locale.
         engine.language = viLocale

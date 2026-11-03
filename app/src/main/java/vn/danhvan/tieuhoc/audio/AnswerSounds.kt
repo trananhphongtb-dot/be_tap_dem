@@ -24,13 +24,18 @@ class AnswerSounds(context: Context) {
     private val correctId: Int = pool.load(context.applicationContext, R.raw.correct, 1)
     private val wrongId: Int = pool.load(context.applicationContext, R.raw.wrong, 1)
 
+    /** Cùng công tắc âm thanh ở Cài đặt với giọng đọc. */
+    var enabled: Boolean = true
+
     /** Âm riêng cho đáp án đúng. */
     fun playCorrect() {
+        if (!enabled) return
         pool.play(correctId, 1f, 1f, 1, 0, 1f)
     }
 
     /** Âm khác cho đáp án sai. */
     fun playWrong() {
+        if (!enabled) return
         pool.play(wrongId, 1f, 1f, 1, 0, 1f)
     }
 

@@ -14,6 +14,20 @@ class ProgressStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("betapdem_offline", Context.MODE_PRIVATE)
 
+    /** Âm thanh: mặc định BẬT, gạt tắt trong Cài đặt thì lưu lại. */
+    fun isSoundEnabled(): Boolean = prefs.getBoolean("sound_enabled", true)
+
+    fun setSoundEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("sound_enabled", enabled).apply()
+    }
+
+    /** Cấp độ đang chọn ở màn hình chính, áp dụng cho cả 7 phần. */
+    fun selectedLevel(): Int = prefs.getInt("selected_level", 1).coerceIn(1, 3)
+
+    fun setSelectedLevel(level: Int) {
+        prefs.edit().putInt("selected_level", level.coerceIn(1, 3)).apply()
+    }
+
     fun isPassed(stage: Int, level: Int): Boolean =
         prefs.getBoolean("passed_L${level}_$stage", false)
 

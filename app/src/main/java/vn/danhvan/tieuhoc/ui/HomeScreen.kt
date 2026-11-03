@@ -4,7 +4,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -18,6 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -107,6 +108,8 @@ fun HomeScreen(
     tts: VietnameseTts,
     selectedLevel: Int,
     onLevelChange: (Int) -> Unit,
+    soundEnabled: Boolean,
+    onSoundChange: (Boolean) -> Unit,
     onStage: (Int, Int) -> Unit,
     autoOpenStage: Int? = null,
     onAutoOpenShown: () -> Unit = {},
@@ -114,6 +117,8 @@ fun HomeScreen(
     var selectedStage by remember { mutableStateOf<StageInfo?>(null) }
     var lockedMessage by remember { mutableStateOf<String?>(null) }
     var introSpoken by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var settingsShowDifficulty by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         if (!introSpoken) {
@@ -210,37 +215,20 @@ fun HomeScreen(
                 }
             }
         }
-        // Hàng chọn cấp độ ở mép trên: bé (hoặc bố mẹ) chọn trước
-        // rồi mới bấm vào phần. Sao qua/khóa của các phần đổi theo
-        // cấp độ đang chọn, vì tiến độ lưu riêng từng cấp độ.
+        // Nút Cài đặt ở góc dưới bên phải màn hình chính, theo yêu
+        // cầu 2026-11-03. Bấm vào mở bảng Cài đặt, trong đó có Độ khó
+        // và Âm thanh; không còn hàng chọn cấp độ ở mép trên nữa.
+        // Cấp độ chọn ở đây là chung cho cả 7 phần, và được lưu lại
+        // nên lần sau mở app vẫn giữ nguyên.
         Box(
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                .size(60.dp)
+                .shadow(8.dp, CircleShape).clip(CircleShape)
+                .background(KidGreen)
+                .clickable { settingsShowDifficulty = false; showSettings = true },
+            contentAlignment = Alignment.Center,
         ) {
-            Row(
-                modifier = Modifier.shadow(6.dp, RoundedCornerShape(20.dp))
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xE6FFFFFF)).padding(6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                for (lv in CountLevels) {
-                    val isSelected = lv.id == selectedLevel
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (isSelected) KidGreen else Color.White)
-                            .border(2.dp, if (isSelected) KidGreen else Color(0xFFBDBDBD), RoundedCornerShape(14.dp))
-                            .clickable { onLevelChange(lv.id) }
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            "Cấp ${lv.id}: ${lv.ten} ${lv.min}-${lv.max}",
-                            fontSize = 18.sp, fontWeight = FontWeight.Black,
-                            color = if (isSelected) Color.White else Color.Black,
-                        )
-                    }
-                }
-            }
+            Text("⚙️", fontSize = 30.sp)
         }
     }
 
@@ -279,6 +267,169 @@ fun HomeScreen(
                         onClick = { tts.stop(); selectedStage = null; onStage(picked.number, selectedLevel) },
                         color = KidGreen, modifier = Modifier.weight(1f),
                     )
+                }
+            }
+        }
+    }
+
+    // Bảng Cài đặt: nền mờ, thẻ màu kem viền gỗ, giống bảng luật
+    // nhưng sáng và gọn hơn cho bố mẹ bấm. Bấm ngoài thẻ không tắt,
+    // phải bấm nút X hoặc "Xong" để không vô tình mất lựa chọn.
+    if (showSettings) {
+        val currentLevel = levelFor(selectedLevel)
+        Box(
+            modifier = Modifier.fillMaxSize().background(Color(0x80000000)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(0.88f)
+                    .shadow(12.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp))
+                    .background(Color(0xFFFFF8E1)).border(3.dp, Color(0xFF8D6E63), RoundedCornerShape(28.dp))
+                    .padding(20.dp),
+            ) {
+                if (!settingsShowDifficulty) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(56.dp)
+                                .shadow(4.dp, CircleShape).clip(CircleShape)
+                                .background(KidGreen),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("⚙️", fontSize = 28.sp)
+                        }
+                        Spacer(modifier = Modifier.size(12.dp))
+                        Text(
+                            "Cài đặt", fontSize = 30.sp, fontWeight = FontWeight.Black,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Box(
+                            modifier = Modifier.size(44.dp)
+                                .shadow(4.dp, CircleShape).clip(CircleShape)
+                                .background(Color.White)
+                                .clickable { showSettings = false },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("✕", fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(18.dp))
+                    // Mục 1: Độ khó. Bấm vào mở ra 3 mức.
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
+                            .background(Color.White)
+                            .clickable { settingsShowDifficulty = true }
+                            .padding(16.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🎚️", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Độ khó", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    "Cấp ${currentLevel.id}: ${currentLevel.ten} (${currentLevel.min}-${currentLevel.max})",
+                                    fontSize = 20.sp, color = Color(0xFF616161),
+                                )
+                            }
+                            Text("›", fontSize = 32.sp, fontWeight = FontWeight.Black, color = KidGreen)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // Mục 2: Âm thanh. Mặc định bật, gạt là tắt.
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
+                            .background(Color.White)
+                            .padding(16.dp),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (soundEnabled) "🔊" else "🔇", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.size(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Âm thanh", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    if (soundEnabled) "Đang bật, bé nghe giọng đọc" else "Đã tắt, không phát tiếng",
+                                    fontSize = 20.sp, color = Color(0xFF616161),
+                                )
+                            }
+                            Switch(
+                                checked = soundEnabled,
+                                onCheckedChange = { onSoundChange(it) },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = KidGreen,
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color(0xFFBDBDBD),
+                                ),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        "Độ khó đổi ở đây áp dụng cho cả 7 phần, và được lưu lại cho lần sau.",
+                        fontSize = 18.sp, color = Color(0xFF616161),
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    BigButton(
+                        text = "Xong ✓",
+                        onClick = { showSettings = false },
+                        color = KidGreen, modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    // Trang con: chọn 1 trong 3 mức độ khó.
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.clickable { settingsShowDifficulty = false }
+                                .padding(vertical = 6.dp),
+                        ) {
+                            Text("← Cài đặt", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = KidGreen)
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                        Text("Chọn độ khó", fontSize = 26.sp, fontWeight = FontWeight.Black)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    for (lv in CountLevels) {
+                        val isSelected = lv.id == selectedLevel
+                        val desc = when (lv.id) {
+                            1 -> "Số nhỏ, cho bé mới bắt đầu"
+                            2 -> "Số vừa, bé đếm tới 50"
+                            else -> "Số lớn, bé đếm tới 100 bằng chấm"
+                        }
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                                .shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) Color(0xFFE8F5E9) else Color.White)
+                                .border(
+                                    if (isSelected) 3.dp else 2.dp,
+                                    if (isSelected) KidGreen else Color(0xFFBDBDBD),
+                                    RoundedCornerShape(20.dp),
+                                )
+                                .clickable {
+                                    onLevelChange(lv.id)
+                                    settingsShowDifficulty = false
+                                }
+                                .padding(16.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Cấp ${lv.id}: ${lv.ten}",
+                                        fontSize = 24.sp, fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text("Số ${lv.min} - ${lv.max}", fontSize = 20.sp)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(desc, fontSize = 18.sp, color = Color(0xFF616161))
+                                }
+                                if (isSelected) {
+                                    Text("✓", fontSize = 30.sp, fontWeight = FontWeight.Black, color = KidGreen)
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
             }
         }

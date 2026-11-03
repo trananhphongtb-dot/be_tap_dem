@@ -34,11 +34,16 @@ class MainActivity : ComponentActivity() {
         store = ProgressStore(this)
         tts = VietnameseTts(this)
         sounds = AnswerSounds(this)
+        // Cài đặt đã lưu: âm thanh mặc định bật, cấp độ lần trước
+        // chọn ở màn hình chính được giữ nguyên cho cả 7 phần.
+        tts.enabled = store.isSoundEnabled()
+        sounds.enabled = store.isSoundEnabled()
 
         setContent {
             DanhVanTheme {
                 var currentStage by remember { mutableStateOf<Int?>(null) }
-                var currentLevel by remember { mutableStateOf(1) }
+                var currentLevel by remember { mutableStateOf(store.selectedLevel()) }
+                var soundEnabled by remember { mutableStateOf(store.isSoundEnabled()) }
                 // Chặng tiếp theo sau khi thi xong: về màn chính và tự mở
                 // bảng luật của chặng đó, không vào thẳng chặng.
                 // Cấp độ giữ nguyên của lần thi vừa xong.
@@ -50,10 +55,22 @@ class MainActivity : ComponentActivity() {
                         store = store,
                         tts = tts,
                         selectedLevel = currentLevel,
-                        onLevelChange = { currentLevel = it },
+                        onLevelChange = {
+                            currentLevel = it
+                            store.setSelectedLevel(it)
+                        },
+                        soundEnabled = soundEnabled,
+                        onSoundChange = {
+                            soundEnabled = it
+                            store.setSoundEnabled(it)
+                            tts.enabled = it
+                            sounds.enabled = it
+                            if (!it) tts.stop()
+                        },
                         onStage = { pickedStage, pickedLevel ->
                             currentStage = pickedStage
                             currentLevel = pickedLevel
+                            store.setSelectedLevel(pickedLevel)
                         },
                         autoOpenStage = autoOpenStage,
                         onAutoOpenShown = { autoOpenStage = null },
