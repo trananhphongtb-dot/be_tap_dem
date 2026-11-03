@@ -89,10 +89,25 @@ private fun PromptCard(text: String, fontSize: Int = 44) {
     }
 }
 
-/** Lưới hình đếm: [count] biểu tượng, mỗi hàng 5 hình. */
+/**
+ * Co đều hình theo số lượng để lưới không cao quá, không đẩy đáp án
+ * xuống khỏi màn hình. Mọi hình trong 1 lần hiển thị luôn cùng cỡ.
+ * 1-10 hình: giữ cỡ gốc. 11-15 hình: 75%. 16-20 hình: 60%.
+ * Ví dụ phần 2: 36sp -> 27sp -> 21sp. Phần 3: 26sp -> 19sp -> 15sp.
+ * Ở phần 3, caller phải tính cỡ 1 lần theo ô nhiều hình nhất rồi truyền
+ * chung cho cả 4 ô, để 4 ô đều nhau, không ô to ô nhỏ.
+ */
+private fun scaledEmojiSize(count: Int, baseSize: Int): Int = when {
+    count <= 10 -> baseSize
+    count <= 15 -> (baseSize * 0.75f).toInt()
+    else -> (baseSize * 0.6f).toInt()
+}
+
+/** Lưới hình đếm: [count] biểu tượng, mỗi hàng 5 hình, cùng 1 cỡ. */
 @Composable
 private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    val spacing = if (count > 15) 2.dp else 4.dp
+    Column(verticalArrangement = Arrangement.spacedBy(spacing), horizontalAlignment = Alignment.CenterHorizontally) {
         for (row in (1..count).chunked(5)) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (i in row) {
@@ -137,15 +152,21 @@ fun Stage2Content(
     }
     AnswerState(question, reviewOnly, onAnswer) { answered, picked, pick ->
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
+            // Khung hình chỉ chiếm tối đa phần còn lại, không được đẩy
+            // đáp án xuống khỏi màn hình. Hình đã co theo số lượng ở trên.
             Box(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.weight(1f, fill = false).fillMaxWidth()
                     .shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
                     .background(Color.White).padding(12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                EmojiGrid(emoji = question.emoji, count = question.targetNumber)
+                EmojiGrid(
+                    emoji = question.emoji,
+                    count = question.targetNumber,
+                    emojiSize = scaledEmojiSize(question.targetNumber, 36),
+                )
             }
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(12.dp))
             OptionGrid(question, answered, picked, pick)
         }
     }
@@ -168,7 +189,12 @@ fun Stage3Content(
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
             PromptCard("Số: ${question.targetNumber}", fontSize = 56)
             Spacer(modifier = Modifier.height(12.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            // Cỡ hình chung cho cả 4 ô, tính theo ô nhiều hình nhất,
+            // để 4 ô đều nhau và không ô nào cao quá đẩy đáp án đi.
+            val quadrantEmojiSize = scaledEmojiSize(question.quadrants.maxOrNull() ?: 0, 26)
+            // Khung 4 ô chỉ chiếm tối đa phần còn lại, đáp án và nút
+            // nghe luôn ở cuối, không bị hình chèn lên.
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) {
                 for (row in 0 until 2) {
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                         for (col in 0 until 2) {
@@ -186,7 +212,7 @@ fun Stage3Content(
                                     EmojiGrid(
                                         emoji = question.emoji,
                                         count = question.quadrants.getOrNull(idx) ?: 0,
-                                        emojiSize = 26,
+                                        emojiSize = quadrantEmojiSize,
                                     )
                                 }
                             }
@@ -194,7 +220,7 @@ fun Stage3Content(
                     }
                 }
             }
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(10.dp))
             SpeakButton(textToSpeak = question.speakText, tts = tts, label = "🔊 Nghe số")
             Spacer(modifier = Modifier.height(10.dp))
             OptionGrid(question, answered, picked, pick)
