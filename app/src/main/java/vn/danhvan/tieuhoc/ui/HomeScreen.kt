@@ -133,7 +133,7 @@ fun HomeScreen(
         StageInfo(3, "Nhìn số, chọn đúng số lượng hình", ""),
         StageInfo(4, "Tìm số còn trống trong dãy", ""),
         StageInfo(5, "Số lớn nhất và số nhỏ nhất", ""),
-        StageInfo(6, "Phép cộng", ""),
+        StageInfo(6, "Phép cộng và phép trừ", ""),
         StageInfo(7, "Điền vào ô dấu hỏi", ""),
     )
 
@@ -221,17 +221,19 @@ fun HomeScreen(
         // Cấp độ chọn ở đây là chung cho cả 7 phần, và được lưu lại
         // nên lần sau mở app vẫn giữ nguyên.
         // Nổi bật hơn theo phản hồi 2026-11-03 (trước đây mờ quá):
-        // to hơn (72dp), nền vàng cam nổi trên nền chính, viền
-        // trắng dày và bóng đậm, kèm nhãn "Cài đặt" bên dưới nút.
+        // to hơn (72dp), viền trắng dày và bóng đậm, kèm nhãn
+        // "Cài đặt" bên dưới nút.
+        // Đổi sang góc dưới bên TRÁI, màu tối, theo phản hồi
+        // 2026-11-03: nút ở bên phải che mất ô số 7.
         Column(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            modifier = Modifier.align(Alignment.BottomStart).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(
                 modifier = Modifier
                     .size(72.dp)
                     .shadow(12.dp, CircleShape).clip(CircleShape)
-                    .background(Color(0xFFFFB300))
+                    .background(Color(0xFF424242))
                     .border(4.dp, Color.White, CircleShape)
                     .clickable { settingsShowDifficulty = false; showSettings = true },
                 contentAlignment = Alignment.Center,

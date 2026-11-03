@@ -9,7 +9,7 @@ val CountStages = listOf(
     StageInfo(3, "Nhìn số, chọn đúng số lượng hình", "Bé hãy nhìn số, chọn hình có đúng số lượng đó."),
     StageInfo(4, "Tìm số còn trống trong dãy", "Bé hãy tìm số còn trống trong dãy số theo quy luật."),
     StageInfo(5, "Số lớn nhất và số nhỏ nhất", "Bé hãy chọn cặp số lớn nhất và số nhỏ nhất trong dãy."),
-    StageInfo(6, "Phép cộng", "Bé hãy tính phép cộng, chọn đáp án đúng."),
+    StageInfo(6, "Phép cộng và phép trừ", "Bé hãy tính phép cộng hoặc phép trừ với 2 số, chọn đáp án đúng."),
     StageInfo(7, "Điền vào ô dấu hỏi", "Bé hãy tìm số thích hợp điền vào ô dấu hỏi."),
 )
 
@@ -52,7 +52,7 @@ const val DOT_COUNT_FROM = 21
  * - sequence: dãy số (phần 4: dãy liên tiếp, phần 5: dãy bất kỳ).
  * - blankIndex: vị trí ô trống ở phần 4, luôn ở giữa, không ở đầu/cuối.
  * - quadrants: số lượng ở 4 ô Hình 1..4 của phần 3, theo đúng thứ tự ô.
- * - equation: phép tính hiển thị (phần 6: "4 + 5 = ?", phần 7: "? + 4 = 9").
+ * - equation: phép tính hiển thị (phần 6: "4 + 5" hoặc "7 - 3", không viết " = ?", phần 7: "? + 4 = 9").
  * - speakText: câu giọng đọc vi-VN đọc khi câu hỏi hiện ra.
  */
 data class CountQuestion(
@@ -339,37 +339,44 @@ object CountGenerator {
                 )
             }
             6 -> {
-                // Phép cộng, kết quả LUÔN trong khoảng của cấp độ.
-                // Chọn tổng trước rồi tách tổng thành các số hạng,
-                // để tổng không bao giờ vượt khoảng, kể cả cấp khó.
-                val sum = inLevel().coerceAtLeast(2)
-                val count = when (lv.id) {
-                    1 -> 2
-                    else -> if (random.nextBoolean()) 2 else 3
+                // Phép cộng và phép trừ, CHỈ 2 số (theo yêu cầu
+                // 2026-11-03; trước đây cấp 2-3 có lúc 3 số hạng).
+                // Cộng: tổng trong khoảng của cấp độ, tách thành
+                // đúng 2 số hạng, để tổng không vượt khoảng.
+                // Trừ: số bị trừ trong khoảng của cấp độ, số trừ
+                // nhỏ hơn số bị trừ, kết quả luôn >= 1.
+                // Hiển thị chỉ viết phép tính, KHÔNG viết " = ?"
+                // nữa; giọng đọc vẫn nói "bằng mấy" (nói được,
+                // không cần viết), theo đúng yêu cầu đó.
+                if (random.nextBoolean()) {
+                    val sum = inLevel().coerceAtLeast(2)
+                    val first = random.nextInt(1, sum)
+                    val second = sum - first
+                    CountQuestion(
+                        key = "s6-L${lv.id}-cong-$first-$second",
+                        stage = 6,
+                        level = lv.id,
+                        options = numberOptions(sum, min, max, random),
+                        correctLabel = "$sum",
+                        targetNumber = sum,
+                        equation = "$first + $second",
+                        speakText = "${vietnameseNumber(first)} cộng ${vietnameseNumber(second)} bằng mấy",
+                    )
+                } else {
+                    val minuend = random.nextInt(maxOf(min, 2), max + 1)
+                    val subtrahend = random.nextInt(1, minuend)
+                    val result = minuend - subtrahend
+                    CountQuestion(
+                        key = "s6-L${lv.id}-tru-$minuend-$subtrahend",
+                        stage = 6,
+                        level = lv.id,
+                        options = numberOptions(result, 1, max, random),
+                        correctLabel = "$result",
+                        targetNumber = result,
+                        equation = "$minuend - $subtrahend",
+                        speakText = "${vietnameseNumber(minuend)} trừ ${vietnameseNumber(subtrahend)} bằng mấy",
+                    )
                 }
-                val addends = when (count) {
-                    2 -> {
-                        val first = random.nextInt(1, sum)
-                        listOf(first, sum - first)
-                    }
-                    else -> {
-                        val first = random.nextInt(1, sum - 1)
-                        val second = random.nextInt(1, sum - first)
-                        listOf(first, second, sum - first - second)
-                    }
-                }
-                val equation = addends.joinToString(" + ") + " = ?"
-                val speakEq = addends.joinToString(" cộng ") { vietnameseNumber(it) } + " bằng mấy"
-                CountQuestion(
-                    key = "s6-L${lv.id}-${addends.joinToString("-")}",
-                    stage = 6,
-                    level = lv.id,
-                    options = numberOptions(sum, min, max, random),
-                    correctLabel = "$sum",
-                    targetNumber = sum,
-                    equation = equation,
-                    speakText = speakEq,
-                )
             }
             else -> {
                 // Phần 7: tìm x, CHỈ phép cộng, không phép trừ.
