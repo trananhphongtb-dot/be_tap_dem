@@ -37,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.danhvan.tieuhoc.audio.VietnameseTts
 import vn.danhvan.tieuhoc.data.CountQuestion
-import vn.danhvan.tieuhoc.data.DOT_COUNT_FROM
 
 /**
  * Nội dung 7 phần của Bé Tập Đếm. Mỗi phần nhận 1 CountQuestion đã sinh
@@ -96,35 +95,6 @@ private fun PromptCard(text: String, fontSize: Int = 44) {
     }
 }
 
-/**
- * Co đều hình theo số lượng để lưới không cao quá, không đẩy đáp án
- * xuống khỏi màn hình. Mọi hình trong 1 lần hiển thị luôn cùng cỡ.
- * 1-10 hình: giữ cỡ gốc. 11-15 hình: 75%. 16-20 hình: 60%.
- * Ví dụ phần 2: 36sp -> 27sp -> 21sp. Phần 3: 26sp -> 19sp -> 15sp.
- * Ở phần 3, caller phải tính cỡ 1 lần theo ô nhiều hình nhất rồi truyền
- * chung cho cả 4 ô, để 4 ô đều nhau, không ô to ô nhỏ.
- */
-private fun scaledEmojiSize(count: Int, baseSize: Int): Int = when {
-    count <= 10 -> baseSize
-    count <= 15 -> (baseSize * 0.75f).toInt()
-    else -> (baseSize * 0.6f).toInt()
-}
-
-/** Lưới hình đếm: [count] biểu tượng, mỗi hàng 5 hình, cùng 1 cỡ. */
-@Composable
-private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
-    val spacing = if (count > 15) 2.dp else 4.dp
-    Column(verticalArrangement = Arrangement.spacedBy(spacing), horizontalAlignment = Alignment.CenterHorizontally) {
-        for (row in (1..count).chunked(5)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (i in row) {
-                    Text(emoji, fontSize = emojiSize.sp)
-                }
-            }
-        }
-    }
-}
-
 /** Màu dịu theo hàng chấm, để bé đếm từng hàng cho dễ nhìn, không chói. */
 private val SoftDotColors = listOf(
     Color(0xFF7AA5C4), // xanh dương dịu
@@ -136,10 +106,11 @@ private val SoftDotColors = listOf(
 )
 
 /**
- * Lưới chấm đếm cho số lượng lớn (từ 21 trở lên): mỗi hàng đúng
- * [colsPerRow] chấm. Phần 2: 10 chấm/hàng để đếm theo chục.
- * Phần 3: 5 chấm/hàng (theo yêu cầu 2026-11-03, vì 10 chấm/hàng
- * bé quá), chấm to hơn và co giãn vừa khung ảnh.
+ * Lưới chấm đếm cho mọi số lượng (theo yêu cầu 2026-11-03:
+ * thay hết bằng chấm, không còn biểu tượng khác thay chấm):
+ * mỗi hàng đúng [colsPerRow] chấm. Phần 2: 10 chấm/hàng để
+ * đếm theo chục. Phần 3: 5 chấm/hàng, chấm to hơn và co giãn
+ * vừa khung ảnh.
  *
  * Chấm là hình tròn đặc vẽ bằng Box, không dùng ký tự ● (đường
  * kính thật của ký tự nhỏ hơn cỡ chữ nhiều nên nhìn lọt thỏm).
@@ -236,22 +207,15 @@ fun Stage2Content(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    if (question.targetNumber >= DOT_COUNT_FROM) {
-                        DotGrid(
-                            count = question.targetNumber,
-                            // Phần 2 cần hiển thị tốt nhất cho dễ đếm:
-                            // chấm to, 10 chấm/hàng, mỗi hàng 1 màu dịu.
-                            maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
-                            spacingDp = 6,
-                            colsPerRow = 10,
-                        )
-                    } else {
-                        EmojiGrid(
-                            emoji = question.emoji,
-                            count = question.targetNumber,
-                            emojiSize = scaledEmojiSize(question.targetNumber, 36),
-                        )
-                    }
+                    // Luôn dùng chấm, không dùng biểu tượng khác,
+                    // kể cả số nhỏ: chấm to, 10 chấm/hàng, mỗi hàng
+                    // 1 màu dịu, cho bé đếm dễ.
+                    DotGrid(
+                        count = question.targetNumber,
+                        maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
+                        spacingDp = 6,
+                        colsPerRow = 10,
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -286,11 +250,6 @@ fun Stage3Content(
     }
     AnswerState(question, reviewOnly, onAnswer) { answered, picked, pick ->
         val correctIdx = question.correctLabel.removePrefix("Hình ").toIntOrNull()?.minus(1) ?: -1
-        val maxQuadrant = question.quadrants.maxOrNull() ?: 0
-        // Ô giờ lớn gấp đôi trước (lấp màn hình), nên emoji cũng
-        // to hơn trước (cỡ gốc 36 thay vì 26) cho bé đếm dễ.
-        val quadrantEmojiSize = scaledEmojiSize(maxQuadrant, 36)
-        val quadrantUseDots = maxQuadrant >= DOT_COUNT_FROM
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -324,22 +283,16 @@ fun Stage3Content(
                                     .padding(10.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                if (quadrantUseDots) {
-                                    DotGrid(
-                                        count = question.quadrants.getOrNull(idx) ?: 0,
-                                        // Phần 3: 5 chấm/hàng, chấm co giãn
-                                        // vừa khung ảnh, mỗi hàng 1 màu dịu.
-                                        maxDotSizeDp = 26,
-                                        spacingDp = 4,
-                                        colsPerRow = 5,
-                                    )
-                                } else {
-                                    EmojiGrid(
-                                        emoji = question.emoji,
-                                        count = question.quadrants.getOrNull(idx) ?: 0,
-                                        emojiSize = quadrantEmojiSize,
-                                    )
-                                }
+                                // Luôn dùng chấm cho cả 4 ô, không
+                                // còn ô nào dùng biểu tượng khác.
+                                DotGrid(
+                                    count = question.quadrants.getOrNull(idx) ?: 0,
+                                    // Phần 3: 5 chấm/hàng, chấm co giãn
+                                    // vừa khung ảnh, mỗi hàng 1 màu dịu.
+                                    maxDotSizeDp = 26,
+                                    spacingDp = 4,
+                                    colsPerRow = 5,
+                                )
                             }
                         }
                     }

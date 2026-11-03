@@ -256,7 +256,7 @@ object CountGenerator {
                     speakText = if (n >= DOT_COUNT_FROM) {
                         "Bé hãy đếm chấm theo hàng, mỗi hàng 10 chấm."
                     } else {
-                        "Bé hãy đếm xem có bao nhiêu hình."
+                        "Bé hãy đếm chấm."
                     },
                 )
             }
@@ -276,7 +276,7 @@ object CountGenerator {
                     targetNumber = target,
                     emoji = emoji,
                     quadrants = quadrants,
-                    speakText = "Số ${vietnameseNumber(target)}. Bé hãy chọn hình có đúng số lượng đó.",
+                    speakText = "Số ${vietnameseNumber(target)}. Bé hãy chọn ô có đúng số chấm đó.",
                 )
             }
             4 -> {
