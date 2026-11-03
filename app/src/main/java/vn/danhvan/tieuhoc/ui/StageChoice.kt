@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -123,14 +125,35 @@ private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
  * Lưới chấm đếm cho số lượng lớn (từ 21 trở lên): mỗi hàng ĐÚNG 10
  * chấm, hàng cách hàng rõ hơn, để bé đếm theo chục (4 hàng đủ là 40,
  * cộng hàng lẻ) thay vì đếm từng chấm tới 50 hay 100.
+ *
+ * Tối ưu 2026-11-03 theo phản hồi "chấm bé quá": không dùng ký tự ●
+ * nữa, vì ở cùng cỡ chữ thì đường kính thật của ký tự nhỏ hơn cỡ
+ * chữ nhiều nên nhìn lọt thỏm trong ô. Chấm giờ là hình tròn đặc
+ * vẽ bằng Box, cỡ lấy theo chiều rộng của ô: đúng 10 chấm lấp đầy
+ * chiều rộng ô (trừ khoảng cách giữa các chấm), nhưng chặn trên ở
+ * [maxDotSizeDp] để không to quá. Ở phần 2 (ô rộng) chấm tới 26dp,
+ * ở phần 3 (ô chỉ bằng nửa màn hình) chấm tới khoảng 13dp là đã
+ * lấp đầy ô, không thể to hơn nếu vẫn giữ 10 chấm/hàng.
  */
 @Composable
-private fun DotGrid(count: Int, dotSize: Int = 16) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        for (row in (1..count).chunked(10)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                for (i in row) {
-                    Text("●", fontSize = dotSize.sp, fontWeight = FontWeight.Black)
+private fun DotGrid(count: Int, maxDotSizeDp: Int, spacingDp: Int = 4) {
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val spacing = spacingDp.dp
+        val widthBased = ((maxWidth.value - spacing.value * 9) / 10).dp
+        val dotSize = widthBased.coerceAtMost(maxDotSizeDp.dp).coerceAtLeast(6.dp)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(spacing + 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            for (row in (1..count).chunked(10)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
+                    for (i in row) {
+                        Box(
+                            modifier = Modifier.size(dotSize)
+                                .clip(CircleShape)
+                                .background(Color(0xFF212121)),
+                        )
+                    }
                 }
             }
         }
@@ -182,7 +205,8 @@ fun Stage2Content(
                 if (question.targetNumber >= DOT_COUNT_FROM) {
                     DotGrid(
                         count = question.targetNumber,
-                        dotSize = if (question.targetNumber <= 50) 18 else 16,
+                        maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
+                        spacingDp = 6,
                     )
                 } else {
                     EmojiGrid(
@@ -242,7 +266,8 @@ fun Stage3Content(
                                     if (quadrantUseDots) {
                                         DotGrid(
                                             count = question.quadrants.getOrNull(idx) ?: 0,
-                                            dotSize = 12,
+                                            maxDotSizeDp = 18,
+                                            spacingDp = 3,
                                         )
                                     } else {
                                         EmojiGrid(
