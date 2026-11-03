@@ -3,6 +3,8 @@ package vn.danhvan.tieuhoc.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -123,31 +125,43 @@ private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
     }
 }
 
+/** Màu dịu theo hàng chấm, để bé đếm từng hàng cho dễ nhìn, không chói. */
+private val SoftDotColors = listOf(
+    Color(0xFF7AA5C4), // xanh dương dịu
+    Color(0xFF8AB17D), // xanh lá dịu
+    Color(0xFFE9A87A), // cam dịu
+    Color(0xFFB5A3D1), // tím dịu
+    Color(0xFFE5989B), // hồng dịu
+    Color(0xFF7FB5A8), // xanh ngọc dịu
+)
+
 /**
- * Lưới chấm đếm cho số lượng lớn (từ 21 trở lên): mỗi hàng ĐÚNG 10
- * chấm, hàng cách hàng rõ hơn, để bé đếm theo chục (4 hàng đủ là 40,
- * cộng hàng lẻ) thay vì đếm từng chấm tới 50 hay 100.
+ * Lưới chấm đếm cho số lượng lớn (từ 21 trở lên): mỗi hàng đúng
+ * [colsPerRow] chấm. Phần 2: 10 chấm/hàng để đếm theo chục.
+ * Phần 3: 5 chấm/hàng (theo yêu cầu 2026-11-03, vì 10 chấm/hàng
+ * bé quá), chấm to hơn và co giãn vừa khung ảnh.
  *
- * Tối ưu 2026-11-03 theo phản hồi "chấm bé quá": không dùng ký tự ●
- * nữa, vì ở cùng cỡ chữ thì đường kính thật của ký tự nhỏ hơn cỡ
- * chữ nhiều nên nhìn lọt thỏm trong ô. Chấm giờ là hình tròn đặc
- * vẽ bằng Box, cỡ lấy theo chiều rộng của ô: đúng 10 chấm lấp đầy
- * chiều rộng ô (trừ khoảng cách giữa các chấm), nhưng chặn trên ở
- * [maxDotSizeDp] để không to quá. Ở phần 2 (ô rộng) chấm tới 26dp,
- * ở phần 3 (ô chỉ bằng nửa màn hình) chấm tới khoảng 13dp là đã
- * lấp đầy ô, không thể to hơn nếu vẫn giữ 10 chấm/hàng.
+ * Chấm là hình tròn đặc vẽ bằng Box, không dùng ký tự ● (đường
+ * kính thật của ký tự nhỏ hơn cỡ chữ nhiều nên nhìn lọt thỏm).
+ * Cỡ chấm lấy theo chiều rộng của ô và chiều cao còn lại của
+ * khung, chặn trên ở [maxDotSizeDp] để không to quá, và không
+ * nhỏ hơn 6dp. Nếu khung cho kéo xuống (phần 2) thì chiều cao
+ * không giới hạn, chấm lấy cỡ theo chiều rộng và kéo xuống xem.
+ * Mỗi hàng 1 màu dịu, khác nhau theo hàng, để bé đếm từng hàng
+ * cho dễ nhìn.
  */
 @Composable
-private fun DotGrid(count: Int, maxDotSizeDp: Int, spacingDp: Int = 4) {
+private fun DotGrid(count: Int, maxDotSizeDp: Int, spacingDp: Int = 4, colsPerRow: Int = 10) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val spacing = spacingDp.dp
         val rowSpacing = spacing + 2.dp
-        val rows = (count + 9) / 10
-        val widthBased = ((maxWidth.value - spacing.value * 9) / 10).dp
-        // Cỡ theo chiều cao còn lại: lưới không được cao quá phần
-        // còn lại của màn hình, để đáp án luôn hiện cùng hình chứ
-        // không bị hình đẩy xuống / che đi. Nếu chiều cao không
-        // giới hạn thì chỉ dùng cỡ theo chiều rộng và cỡ tối đa.
+        val rows = (count + colsPerRow - 1) / colsPerRow
+        val widthBased = ((maxWidth.value - spacing.value * (colsPerRow - 1)) / colsPerRow).dp
+        // Cỡ theo chiều cao còn lại của khung: lưới không được cao
+        // quá khung, để đáp án luôn hiện cùng hình chứ không bị
+        // hình đẩy xuống / che đi. Nếu chiều cao không giới hạn
+        // (khung cho kéo xuống) thì chỉ dùng cỡ theo chiều rộng
+        // và cỡ tối đa.
         val heightBased = if (maxHeight.value < Float.POSITIVE_INFINITY && rows > 0) {
             ((maxHeight.value - rowSpacing.value * (rows - 1)) / rows).dp
         } else {
@@ -158,12 +172,8 @@ private fun DotGrid(count: Int, maxDotSizeDp: Int, spacingDp: Int = 4) {
             verticalArrangement = Arrangement.spacedBy(rowSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Mỗi hàng là 1 chục, tô màu xen kẽ theo hàng (đen /
-            // xanh dương) để bé đếm theo chục dễ hơn: nhìn màu là
-            // biết đã đếm hết 1 hàng 10 chấm hay chưa, thay vì
-            // đếm từng chấm từ đầu tới 50 hay 100.
-            for ((rowIdx, row) in (1..count).chunked(10).withIndex()) {
-                val rowColor = if (rowIdx % 2 == 0) Color(0xFF212121) else Color(0xFF1565C0)
+            for ((rowIdx, row) in (1..count).chunked(colsPerRow).withIndex()) {
+                val rowColor = SoftDotColors[rowIdx % SoftDotColors.size]
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
                     for (i in row) {
                         Box(
@@ -212,30 +222,36 @@ fun Stage2Content(
     }
     AnswerState(question, reviewOnly, onAnswer) { answered, picked, pick ->
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-            // Khung hình chỉ chiếm tối đa phần còn lại, không được đẩy
-            // đáp án xuống khỏi màn hình. Hình đã co theo số lượng ở trên.
+            // Hình ở trên cùng, đáp án ở dưới cùng, cố định.
+            // Khung hình chiếm phần còn lại; hình to quá thì kéo
+            // xuống xem trong khung, đáp án vẫn nằm dưới cùng
+            // chứ không bị hình đẩy đi hay che đi.
             Box(
-                modifier = Modifier.weight(1f, fill = false).fillMaxWidth()
+                modifier = Modifier.weight(1f).fillMaxWidth()
                     .shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
                     .background(Color.White).padding(12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                if (question.targetNumber >= DOT_COUNT_FROM) {
-                    DotGrid(
-                        count = question.targetNumber,
-                        // Phần 2 cần hiển thị tốt nhất cho dễ đếm:
-                        // chấm to nhất có thể, chiều cao còn lại
-                        // trong DotGrid sẽ tự co lại nếu màn hình
-                        // thấp, nên đáp án vẫn hiện cùng hình.
-                        maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
-                        spacingDp = 6,
-                    )
-                } else {
-                    EmojiGrid(
-                        emoji = question.emoji,
-                        count = question.targetNumber,
-                        emojiSize = scaledEmojiSize(question.targetNumber, 36),
-                    )
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    if (question.targetNumber >= DOT_COUNT_FROM) {
+                        DotGrid(
+                            count = question.targetNumber,
+                            // Phần 2 cần hiển thị tốt nhất cho dễ đếm:
+                            // chấm to, 10 chấm/hàng, mỗi hàng 1 màu dịu.
+                            maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
+                            spacingDp = 6,
+                            colsPerRow = 10,
+                        )
+                    } else {
+                        EmojiGrid(
+                            emoji = question.emoji,
+                            count = question.targetNumber,
+                            emojiSize = scaledEmojiSize(question.targetNumber, 36),
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
@@ -311,8 +327,11 @@ fun Stage3Content(
                                 if (quadrantUseDots) {
                                     DotGrid(
                                         count = question.quadrants.getOrNull(idx) ?: 0,
-                                        maxDotSizeDp = if (maxQuadrant > 50) 14 else 16,
-                                        spacingDp = 3,
+                                        // Phần 3: 5 chấm/hàng, chấm co giãn
+                                        // vừa khung ảnh, mỗi hàng 1 màu dịu.
+                                        maxDotSizeDp = 26,
+                                        spacingDp = 4,
+                                        colsPerRow = 5,
                                     )
                                 } else {
                                     EmojiGrid(

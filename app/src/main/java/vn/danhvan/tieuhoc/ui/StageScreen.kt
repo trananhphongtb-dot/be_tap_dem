@@ -73,10 +73,47 @@ fun StageScreen(
     // và đọc được câu vừa thêm ngay trong lần compose đó.
     val questions = remember(stage, level) { mutableListOf<CountQuestion>() }
     val usedKeys = remember(stage, level) { mutableSetOf<String>() }
+    // Số lượng và quy luật của vài câu gần nhất, để câu mới khác
+    // đi một chút: không ra lại ngay số lượng vừa ra, và quy luật
+    // vừa ra cũng hạn chế ra lại. Chỉ giữ 3 câu gần nhất, vì cấp 1
+    // có ít quy luật nên tránh hết mọi quy luật đã ra là không thể.
+    val recentTargets = remember(stage, level) { mutableListOf<Int>() }
+    val recentPatterns = remember(stage, level) { mutableListOf<String>() }
+    fun patternSignature(q: CountQuestion): String {
+        if (q.stage != 4 || q.sequence.size < 2) return ""
+        val step = q.sequence[1] - q.sequence[0]
+        val absStep = if (step < 0) -step else step
+        val dir = if (step > 0) "tang" else "giam"
+        return when {
+            absStep == 2 && q.sequence[0] % 2 == 0 -> "chan"
+            absStep == 2 && q.sequence[0] % 2 == 1 -> "le"
+            absStep == 10 && q.sequence[0] % 10 == 0 -> "tronchuc"
+            else -> "buoc${absStep}_$dir"
+        }
+    }
     if (qIndex >= questions.size) {
-        val q = CountGenerator.generate(stage, level, usedKeys)
+        var q = CountGenerator.generate(stage, level, usedKeys)
+        var tries = 0
+        while (tries < 15) {
+            val targetRepeat = q.targetNumber != 0 && q.targetNumber in recentTargets
+            val patternRepeat = stage == 4 && patternSignature(q) in recentPatterns
+            if (!targetRepeat && !patternRepeat) break
+            tries++
+            q = CountGenerator.generate(stage, level, usedKeys)
+        }
         questions += q
         usedKeys += q.key
+        if (q.targetNumber != 0) {
+            recentTargets += q.targetNumber
+            while (recentTargets.size > 3) recentTargets.removeAt(0)
+        }
+        if (stage == 4) {
+            val sig = patternSignature(q)
+            if (sig.isNotEmpty()) {
+                recentPatterns += sig
+                while (recentPatterns.size > 3) recentPatterns.removeAt(0)
+            }
+        }
     }
     val question = questions[qIndex]
     val isReview = qIndex in answeredIndices
@@ -117,10 +154,10 @@ fun StageScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         StageBackgroundFull(stage)
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            // Phần 2 (nhìn hình đoán số) cần nhiều chỗ nhất cho
-            // hình + đáp án, nên ẩn thanh thỏ chạy ở trên cùng,
-            // chỉ giữ hàng tên phần và điểm. Các phần khác giữ nguyên.
-            ScoreHeader(stageName = "Phần $stage - Cấp ${levelFor(level).ten}", score = score, showProgress = stage != 2, onBack = {
+            // Thanh tiến trình thỏ chạy hiện lại cho cả 7 phần,
+            // kể cả phần 2 (trước đây ẩn ở phần 2 để lấy chỗ, nhưng
+            // người dùng báo thiếu thanh tiến trình).
+            ScoreHeader(stageName = "Phần $stage - Cấp ${levelFor(level).ten}", score = score, onBack = {
                 tts.stop()
                 onBack()
             })

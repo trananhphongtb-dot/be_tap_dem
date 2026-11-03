@@ -220,15 +220,33 @@ fun HomeScreen(
         // và Âm thanh; không còn hàng chọn cấp độ ở mép trên nữa.
         // Cấp độ chọn ở đây là chung cho cả 7 phần, và được lưu lại
         // nên lần sau mở app vẫn giữ nguyên.
-        Box(
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-                .size(60.dp)
-                .shadow(8.dp, CircleShape).clip(CircleShape)
-                .background(KidGreen)
-                .clickable { settingsShowDifficulty = false; showSettings = true },
-            contentAlignment = Alignment.Center,
+        // Nổi bật hơn theo phản hồi 2026-11-03 (trước đây mờ quá):
+        // to hơn (72dp), nền vàng cam nổi trên nền chính, viền
+        // trắng dày và bóng đậm, kèm nhãn "Cài đặt" bên dưới nút.
+        Column(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("⚙️", fontSize = 30.sp)
+            Box(
+                modifier = Modifier
+                    .size(72.dp)
+                    .shadow(12.dp, CircleShape).clip(CircleShape)
+                    .background(Color(0xFFFFB300))
+                    .border(4.dp, Color.White, CircleShape)
+                    .clickable { settingsShowDifficulty = false; showSettings = true },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("⚙️", fontSize = 36.sp)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .shadow(6.dp, RoundedCornerShape(10.dp)).clip(RoundedCornerShape(10.dp))
+                    .background(Color.White).padding(horizontal = 10.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Cài đặt", fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
         }
     }
 
