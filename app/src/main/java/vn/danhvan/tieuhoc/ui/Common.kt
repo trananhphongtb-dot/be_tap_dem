@@ -92,7 +92,7 @@ fun SpeakButton(textToSpeak: String, tts: VietnameseTts, label: String = "🔊 N
  * - Điểm riêng từng chặng, không cộng dồn.
  */
 @Composable
-fun ScoreHeader(stageName: String, score: Int, onBack: () -> Unit) {
+fun ScoreHeader(stageName: String, score: Int, onBack: () -> Unit, showProgress: Boolean = true) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -120,30 +120,32 @@ fun ScoreHeader(stageName: String, score: Int, onBack: () -> Unit) {
                 )
             }
         }
-        Spacer(modifier = Modifier.height(6.dp))
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(44.dp)) {
-            val density = LocalDensity.current
-            val widthPx = with(density) { maxWidth.toPx() }
-            val frac = (score.toFloat() / GameRules.POINTS_TO_PASS).coerceIn(0f, 1f)
-            Box(
-                modifier = Modifier.align(Alignment.CenterStart)
-                    .fillMaxWidth().height(10.dp)
-                    .clip(RoundedCornerShape(5.dp)).background(Color(0xFFBDBDBD)),
-            )
-            Box(
-                modifier = Modifier.align(Alignment.CenterStart)
-                    .fillMaxWidth(frac).height(10.dp)
-                    .clip(RoundedCornerShape(5.dp)).background(KidGreen),
-            )
-            val rabbitX = (frac * widthPx - 22f).coerceIn(0f, (widthPx - 44f).coerceAtLeast(0f)).roundToInt()
-            Text(
-                "🐰", fontSize = 30.sp,
-                modifier = Modifier.align(Alignment.CenterStart).offset { IntOffset(rabbitX, -8) },
-            )
-            Text(
-                "🥕", fontSize = 30.sp,
-                modifier = Modifier.align(Alignment.CenterEnd).offset { IntOffset(0, -8) },
-            )
+        if (showProgress) {
+            Spacer(modifier = Modifier.height(6.dp))
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().height(44.dp)) {
+                val density = LocalDensity.current
+                val widthPx = with(density) { maxWidth.toPx() }
+                val frac = (score.toFloat() / GameRules.POINTS_TO_PASS).coerceIn(0f, 1f)
+                Box(
+                    modifier = Modifier.align(Alignment.CenterStart)
+                        .fillMaxWidth().height(10.dp)
+                        .clip(RoundedCornerShape(5.dp)).background(Color(0xFFBDBDBD)),
+                )
+                Box(
+                    modifier = Modifier.align(Alignment.CenterStart)
+                        .fillMaxWidth(frac).height(10.dp)
+                        .clip(RoundedCornerShape(5.dp)).background(KidGreen),
+                )
+                val rabbitX = (frac * widthPx - 22f).coerceIn(0f, (widthPx - 44f).coerceAtLeast(0f)).roundToInt()
+                Text(
+                    "🐰", fontSize = 30.sp,
+                    modifier = Modifier.align(Alignment.CenterStart).offset { IntOffset(rabbitX, -8) },
+                )
+                Text(
+                    "🥕", fontSize = 30.sp,
+                    modifier = Modifier.align(Alignment.CenterEnd).offset { IntOffset(0, -8) },
+                )
+            }
         }
     }
 }

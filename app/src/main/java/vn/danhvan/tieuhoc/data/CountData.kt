@@ -7,7 +7,7 @@ val CountStages = listOf(
     StageInfo(1, "Nghe số, chọn đúng số", "Bé hãy nghe số, chọn đúng số đó."),
     StageInfo(2, "Nhìn hình, đếm rồi chọn đúng số", "Bé hãy đếm số hình, chọn đúng số đó."),
     StageInfo(3, "Nhìn số, chọn đúng số lượng hình", "Bé hãy nhìn số, chọn hình có đúng số lượng đó."),
-    StageInfo(4, "Tìm số còn trống trong dãy", "Bé hãy tìm số còn trống trong dãy số liên tiếp."),
+    StageInfo(4, "Tìm số còn trống trong dãy", "Bé hãy tìm số còn trống trong dãy số theo quy luật."),
     StageInfo(5, "Số lớn nhất và số nhỏ nhất", "Bé hãy chọn cặp số lớn nhất và số nhỏ nhất trong dãy."),
     StageInfo(6, "Phép cộng", "Bé hãy tính phép cộng, chọn đáp án đúng."),
     StageInfo(7, "Điền vào ô dấu hỏi", "Bé hãy tìm số thích hợp điền vào ô dấu hỏi."),
@@ -135,6 +135,74 @@ private fun numberOptions(correct: Int, min: Int, max: Int, random: Random): Lis
     (listOf(correct) + numberDistractors(correct, min, max, random))
         .map { "$it" }.shuffled(random)
 
+/**
+ * Sinh 1 dãy 5 số theo 1 quy luật, dùng cho phần 4 (tìm số trống).
+ * Các quy luật, chọn theo độ rộng của cấp độ để dãy luôn nằm
+ * trong khoảng của cấp độ:
+ * - Tăng/giảm liên tiếp (bước 1), tăng/giảm cách 2.
+ * - Số chẵn liên tiếp, số lẻ liên tiếp (bước 2, bắt đầu chẵn/lẻ).
+ * - Tăng/giảm cách 3 (khi đủ rộng), cách 5 (khi đủ rộng hơn).
+ * - Tròn chục: bước 10, bắt đầu là bội của 10 (chỉ cấp khó, vì
+ *   cấp 1-10 và 11-50 không đủ rộng cho 5 số cách nhau 10).
+ * Cấp 1 (1-10) chỉ có bước 1, bước 2, chẵn, lẻ; cấp 2 thêm bước 3,
+ * bước 5; cấp 3 thêm bước 10 và tròn chục.
+ */
+private fun patternSequence(min: Int, max: Int, random: Random): List<Int> {
+    data class Rule(val step: Int, val dir: Int, val startOk: (Int) -> Boolean)
+    val width = max - min
+    val rules = mutableListOf(
+        Rule(1, 1) { true }, Rule(1, -1) { true },
+        Rule(2, 1) { true }, Rule(2, -1) { true },
+        Rule(2, 1) { it % 2 == 0 }, Rule(2, -1) { it % 2 == 0 },
+        Rule(2, 1) { it % 2 == 1 }, Rule(2, -1) { it % 2 == 1 },
+    )
+    if (width >= 12) {
+        rules += Rule(3, 1) { true }
+        rules += Rule(3, -1) { true }
+    }
+    if (width >= 20) {
+        rules += Rule(5, 1) { true }
+        rules += Rule(5, -1) { true }
+    }
+    if (width >= 40) {
+        rules += Rule(10, 1) { true }
+        rules += Rule(10, -1) { true }
+        rules += Rule(10, 1) { it % 10 == 0 }
+        rules += Rule(10, -1) { it % 10 == 0 }
+    }
+    for (rule in rules.shuffled(random)) {
+        val span = 4 * rule.step
+        val startRange = if (rule.dir > 0) min..(max - span) else (min + span)..max
+        val starts = startRange.filter(rule.startOk)
+        if (starts.isNotEmpty()) {
+            val start = starts.random(random)
+            return List(5) { start + rule.dir * rule.step * it }
+        }
+    }
+    return (min..min + 4).toList()
+}
+
+/** 3 số gây nhiễu cho phần 4: gần đáp án, trong khoảng, không trùng các số đã hiện trong dãy. */
+private fun patternDistractors(answer: Int, seq: List<Int>, min: Int, max: Int, random: Random): List<Int> {
+    val step = if (seq.size >= 2) (seq[1] - seq[0]).let { if (it < 0) -it else it } else 1
+    val near = listOf(
+        answer - 10, answer - 5, answer - step * 2, answer - step, answer - 1,
+        answer + 1, answer + step, answer + step * 2, answer + 5, answer + 10,
+    ).filter { it in min..max && it != answer && it !in seq }.shuffled(random)
+    val out = mutableListOf<Int>()
+    for (n in near) {
+        if (out.size >= 3) break
+        if (n !in out) out += n
+    }
+    var tries = 0
+    while (out.size < 3 && tries < 200) {
+        tries++
+        val n = random.nextInt(min, max + 1)
+        if (n != answer && n !in seq && n !in out) out += n
+    }
+    return out
+}
+
 /** Sinh 1 câu hỏi cho phần [stage], cấp độ [level], khóa key không trùng [usedKeys]. */
 object CountGenerator {
     fun generate(
@@ -212,21 +280,22 @@ object CountGenerator {
                 )
             }
             4 -> {
-                // Dãy liên tiếp dài 5, bắt đầu trong cấp độ sao cho
-                // dãy không vượt quá max của cấp độ.
+                // Dãy 5 số theo 1 quy luật (tăng, giảm, chẵn, lẻ,
+                // tròn chục, cách khoảng), sinh bởi patternSequence
+                // sao cho dãy luôn nằm trong khoảng của cấp độ.
                 // Ô trống ở giữa (vị trí 1, 2 hoặc 3), không ở đầu/cuối.
-                val start = random.nextInt(min, max - 4 + 1)
-                val seq = (start..start + 4).toList()
+                val seq = patternSequence(min, max, random)
                 val blank = random.nextInt(1, 4)
                 val answer = seq[blank]
                 val speakSeq = seq.mapIndexed { i, v ->
                     if (i == blank) "trống" else vietnameseNumber(v)
                 }.joinToString(", ")
+                val distractors = patternDistractors(answer, seq, min, max, random)
                 CountQuestion(
                     key = "s4-L${lv.id}-${seq.joinToString("-")}-$blank",
                     stage = 4,
                     level = lv.id,
-                    options = numberOptions(answer, min, max, random),
+                    options = (listOf(answer) + distractors).map { "$it" }.shuffled(random),
                     correctLabel = "$answer",
                     targetNumber = answer,
                     sequence = seq,

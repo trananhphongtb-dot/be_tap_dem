@@ -2,12 +2,14 @@ package vn.danhvan.tieuhoc.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -139,19 +141,35 @@ private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
 private fun DotGrid(count: Int, maxDotSizeDp: Int, spacingDp: Int = 4) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val spacing = spacingDp.dp
+        val rowSpacing = spacing + 2.dp
+        val rows = (count + 9) / 10
         val widthBased = ((maxWidth.value - spacing.value * 9) / 10).dp
-        val dotSize = widthBased.coerceAtMost(maxDotSizeDp.dp).coerceAtLeast(6.dp)
+        // Cỡ theo chiều cao còn lại: lưới không được cao quá phần
+        // còn lại của màn hình, để đáp án luôn hiện cùng hình chứ
+        // không bị hình đẩy xuống / che đi. Nếu chiều cao không
+        // giới hạn thì chỉ dùng cỡ theo chiều rộng và cỡ tối đa.
+        val heightBased = if (maxHeight.value < Float.POSITIVE_INFINITY && rows > 0) {
+            ((maxHeight.value - rowSpacing.value * (rows - 1)) / rows).dp
+        } else {
+            maxDotSizeDp.dp
+        }
+        val dotSize = minOf(widthBased, maxDotSizeDp.dp, heightBased).coerceAtLeast(6.dp)
         Column(
-            verticalArrangement = Arrangement.spacedBy(spacing + 2.dp),
+            verticalArrangement = Arrangement.spacedBy(rowSpacing),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            for (row in (1..count).chunked(10)) {
+            // Mỗi hàng là 1 chục, tô màu xen kẽ theo hàng (đen /
+            // xanh dương) để bé đếm theo chục dễ hơn: nhìn màu là
+            // biết đã đếm hết 1 hàng 10 chấm hay chưa, thay vì
+            // đếm từng chấm từ đầu tới 50 hay 100.
+            for ((rowIdx, row) in (1..count).chunked(10).withIndex()) {
+                val rowColor = if (rowIdx % 2 == 0) Color(0xFF212121) else Color(0xFF1565C0)
                 Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
                     for (i in row) {
                         Box(
                             modifier = Modifier.size(dotSize)
                                 .clip(CircleShape)
-                                .background(Color(0xFF212121)),
+                                .background(rowColor),
                         )
                     }
                 }
@@ -205,6 +223,10 @@ fun Stage2Content(
                 if (question.targetNumber >= DOT_COUNT_FROM) {
                     DotGrid(
                         count = question.targetNumber,
+                        // Phần 2 cần hiển thị tốt nhất cho dễ đếm:
+                        // chấm to nhất có thể, chiều cao còn lại
+                        // trong DotGrid sẽ tự co lại nếu màn hình
+                        // thấp, nên đáp án vẫn hiện cùng hình.
                         maxDotSizeDp = if (question.targetNumber <= 50) 26 else 22,
                         spacingDp = 6,
                     )
@@ -223,10 +245,18 @@ fun Stage2Content(
 }
 
 /**
- * Phần 3, DẠNG GHÉP (chốt 2026-10-29): 1 hình lớn gồm 4 hình nhỏ 2x2,
- * mỗi ô ghi "Hình 1".."Hình 4" và chứa 1 số lượng đồ vật CÙNG loại,
- * số lượng mỗi ô khác nhau, 1 ô đúng bằng số đã cho. Đáp án là 4 nút
- * chữ "Hình 1".."Hình 4", không phải nút hình riêng lẻ.
+ * Phần 3, DẠNG GHÉP: 4 ô hình 2x2, mỗi ô chứa 1 số lượng đồ vật
+ * CÙNG loại, số lượng mỗi ô khác nhau, 1 ô đúng bằng số cần tìm.
+ *
+ * Đổi theo yêu cầu 2026-11-03, để tiết kiệm hiển thị tối đa:
+ * - Không còn ô báo số ở trên cùng, không còn hàng đáp án riêng
+ *   "Hình 1".."Hình 4" ở dưới cùng.
+ * - 4 ô hình tự lấp đầy màn hình (mỗi ô chiếm 1/4 màn hình),
+ *   căn đều nhau, bấm trực tiếp vào ô hình là trả lời luôn.
+ * - Số cần tìm chỉ còn qua giọng đọc: câu mới hiện là tự đọc
+ *   số cần tìm, bé bấm "Nghe số" để nghe lại. Không hiển thị
+ *   số cần tìm bằng chữ nữa, đúng yêu cầu bỏ ô báo số.
+ * - Sau khi trả lời: ô đúng viền xanh lá, ô bé bấm sai viền đỏ.
  */
 @Composable
 fun Stage3Content(
@@ -235,47 +265,61 @@ fun Stage3Content(
     reviewOnly: Boolean,
     onAnswer: (Boolean, String) -> Unit,
 ) {
+    if (!reviewOnly) {
+        LaunchedEffect(question.key) { tts.speak(question.speakText) }
+    }
     AnswerState(question, reviewOnly, onAnswer) { answered, picked, pick ->
+        val correctIdx = question.correctLabel.removePrefix("Hình ").toIntOrNull()?.minus(1) ?: -1
+        val maxQuadrant = question.quadrants.maxOrNull() ?: 0
+        // Ô giờ lớn gấp đôi trước (lấp màn hình), nên emoji cũng
+        // to hơn trước (cỡ gốc 36 thay vì 26) cho bé đếm dễ.
+        val quadrantEmojiSize = scaledEmojiSize(maxQuadrant, 36)
+        val quadrantUseDots = maxQuadrant >= DOT_COUNT_FROM
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxSize()) {
-            PromptCard("Số: ${question.targetNumber}", fontSize = 56)
-            Spacer(modifier = Modifier.height(12.dp))
-            // Cỡ hình chung cho cả 4 ô, tính theo ô nhiều hình nhất,
-            // để 4 ô đều nhau và không ô nào cao quá đẩy đáp án đi.
-            // Nếu ô nhiều nhất đã tới mức dùng chấm thì cả 4 ô đều
-            // dùng chấm cho đồng nhất, không ô emoji ô chấm.
-            val maxQuadrant = question.quadrants.maxOrNull() ?: 0
-            val quadrantEmojiSize = scaledEmojiSize(maxQuadrant, 26)
-            val quadrantUseDots = maxQuadrant >= DOT_COUNT_FROM
-            // Khung 4 ô chỉ chiếm tối đa phần còn lại, đáp án và nút
-            // nghe luôn ở cuối, không bị hình chèn lên.
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+            ) {
                 for (row in 0 until 2) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                    ) {
                         for (col in 0 until 2) {
                             val idx = row * 2 + col
+                            val isCorrect = answered && idx == correctIdx
+                            val isWrongPick = answered && picked == "Hình ${idx + 1}" && idx != correctIdx
+                            val bg = when {
+                                isCorrect -> Color(0xFFE8F5E9)
+                                isWrongPick -> Color(0xFFFFEBEE)
+                                else -> Color.White
+                            }
                             Box(
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f).fillMaxHeight()
                                     .shadow(4.dp, RoundedCornerShape(16.dp))
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(Color.White).padding(10.dp),
+                                    .background(bg)
+                                    .border(
+                                        width = if (isCorrect || isWrongPick) 5.dp else 0.dp,
+                                        color = if (isCorrect) KidGreen else if (isWrongPick) Color.Red else Color.Transparent,
+                                        shape = RoundedCornerShape(16.dp),
+                                    )
+                                    .clickable(enabled = !answered) { pick("Hình ${idx + 1}") }
+                                    .padding(10.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text("Hình ${idx + 1}", fontSize = 22.sp, fontWeight = FontWeight.Black)
-                                    Spacer(modifier = Modifier.height(6.dp))
-                                    if (quadrantUseDots) {
-                                        DotGrid(
-                                            count = question.quadrants.getOrNull(idx) ?: 0,
-                                            maxDotSizeDp = 18,
-                                            spacingDp = 3,
-                                        )
-                                    } else {
-                                        EmojiGrid(
-                                            emoji = question.emoji,
-                                            count = question.quadrants.getOrNull(idx) ?: 0,
-                                            emojiSize = quadrantEmojiSize,
-                                        )
-                                    }
+                                if (quadrantUseDots) {
+                                    DotGrid(
+                                        count = question.quadrants.getOrNull(idx) ?: 0,
+                                        maxDotSizeDp = if (maxQuadrant > 50) 14 else 16,
+                                        spacingDp = 3,
+                                    )
+                                } else {
+                                    EmojiGrid(
+                                        emoji = question.emoji,
+                                        count = question.quadrants.getOrNull(idx) ?: 0,
+                                        emojiSize = quadrantEmojiSize,
+                                    )
                                 }
                             }
                         }
@@ -284,8 +328,6 @@ fun Stage3Content(
             }
             Spacer(modifier = Modifier.height(10.dp))
             SpeakButton(textToSpeak = question.speakText, tts = tts, label = "🔊 Nghe số")
-            Spacer(modifier = Modifier.height(10.dp))
-            OptionGrid(question, answered, picked, pick)
         }
     }
 }

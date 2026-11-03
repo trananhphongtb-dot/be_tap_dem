@@ -117,7 +117,10 @@ fun StageScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         StageBackgroundFull(stage)
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            ScoreHeader(stageName = "Phần $stage - Cấp ${levelFor(level).ten}", score = score, onBack = {
+            // Phần 2 (nhìn hình đoán số) cần nhiều chỗ nhất cho
+            // hình + đáp án, nên ẩn thanh thỏ chạy ở trên cùng,
+            // chỉ giữ hàng tên phần và điểm. Các phần khác giữ nguyên.
+            ScoreHeader(stageName = "Phần $stage - Cấp ${levelFor(level).ten}", score = score, showProgress = stage != 2, onBack = {
                 tts.stop()
                 onBack()
             })
