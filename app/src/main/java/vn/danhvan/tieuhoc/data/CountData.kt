@@ -9,7 +9,7 @@ val CountStages = listOf(
     StageInfo(3, "Nhìn số, chọn đúng số lượng hình", "Bé hãy nhìn số, chọn hình có đúng số lượng đó."),
     StageInfo(4, "Tìm số còn trống trong dãy", "Bé hãy tìm số còn trống trong dãy số theo quy luật."),
     StageInfo(5, "Số lớn nhất và số nhỏ nhất", "Bé hãy chọn cặp số lớn nhất và số nhỏ nhất trong dãy."),
-    StageInfo(6, "Phép cộng và phép trừ", "Bé hãy tính phép cộng hoặc phép trừ với 2 số, chọn đáp án đúng."),
+    StageInfo(6, "Phép cộng và phép trừ", "Bé hãy tính phép cộng hoặc phép trừ với 2 số, không nhớ, chọn đáp án đúng."),
     StageInfo(7, "Điền vào ô dấu hỏi", "Bé hãy tìm số thích hợp điền vào ô dấu hỏi."),
 )
 
@@ -203,6 +203,14 @@ private fun patternDistractors(answer: Int, seq: List<Int>, min: Int, max: Int, 
     return out
 }
 
+/** Cộng không nhớ: hàng đơn vị cộng < 10 và hàng chục cộng < 10, không nhớ sang hàng cao hơn. */
+private fun noCarryAdd(a: Int, b: Int): Boolean =
+    (a % 10 + b % 10 < 10) && (a / 10 + b / 10 < 10)
+
+/** Trừ không mượn: hàng đơn vị và hàng chục của số bị trừ đều >= số trừ, không phải mượn. */
+private fun noBorrowSub(a: Int, b: Int): Boolean =
+    (a % 10 >= b % 10) && (a / 10 >= b / 10)
+
 /** Sinh 1 câu hỏi cho phần [stage], cấp độ [level], khóa key không trùng [usedKeys]. */
 object CountGenerator {
     fun generate(
@@ -339,19 +347,34 @@ object CountGenerator {
                 )
             }
             6 -> {
-                // Phép cộng và phép trừ, CHỈ 2 số (theo yêu cầu
-                // 2026-11-03; trước đây cấp 2-3 có lúc 3 số hạng).
+                // Phép cộng và phép trừ, CHỈ 2 số, CHỈ KHÔNG NHỚ
+                // (theo yêu cầu 2026-11-03: không lấy phép tính
+                // có nhớ, chỉ lấy phép tính không nhớ).
                 // Cộng: tổng trong khoảng của cấp độ, tách thành
-                // đúng 2 số hạng, để tổng không vượt khoảng.
-                // Trừ: số bị trừ trong khoảng của cấp độ, số trừ
-                // nhỏ hơn số bị trừ, kết quả luôn >= 1.
+                // đúng 2 số hạng, không nhớ ở hàng đơn vị và
+                // hàng chục. Trừ: số bị trừ trong khoảng của
+                // cấp độ, số trừ nhỏ hơn, không phải mượn ở
+                // hàng đơn vị và hàng chục, kết quả luôn >= 1.
+                // Cấp 1 (1-10) là phép tính trong phạm vi 10,
+                // vốn đã là không nhớ theo chương trình cho bé
+                // mới bắt đầu, nên không áp dụng kiểm tra nhớ
+                // theo hàng ở cấp này (ví dụ 5 + 5 = 10, 10 - 4
+                // vẫn được tính là không nhớ ở cấp 1).
                 // Hiển thị chỉ viết phép tính, KHÔNG viết " = ?"
-                // nữa; giọng đọc vẫn nói "bằng mấy" (nói được,
-                // không cần viết), theo đúng yêu cầu đó.
+                // nữa; giọng đọc vẫn nói "bằng mấy".
+                // Phần 7 (điền ?) không đổi ở lần sửa này.
                 if (random.nextBoolean()) {
-                    val sum = inLevel().coerceAtLeast(2)
-                    val first = random.nextInt(1, sum)
-                    val second = sum - first
+                    var sum = 0
+                    var first = 0
+                    var second = 0
+                    var tries = 0
+                    while (true) {
+                        sum = inLevel().coerceAtLeast(2)
+                        first = random.nextInt(1, sum)
+                        second = sum - first
+                        tries++
+                        if (lv.id == 1 || noCarryAdd(first, second) || tries >= 200) break
+                    }
                     CountQuestion(
                         key = "s6-L${lv.id}-cong-$first-$second",
                         stage = 6,
@@ -363,9 +386,17 @@ object CountGenerator {
                         speakText = "${vietnameseNumber(first)} cộng ${vietnameseNumber(second)} bằng mấy",
                     )
                 } else {
-                    val minuend = random.nextInt(maxOf(min, 2), max + 1)
-                    val subtrahend = random.nextInt(1, minuend)
-                    val result = minuend - subtrahend
+                    var minuend = 0
+                    var subtrahend = 0
+                    var result = 0
+                    var tries = 0
+                    while (true) {
+                        minuend = random.nextInt(maxOf(min, 2), max + 1)
+                        subtrahend = random.nextInt(1, minuend)
+                        result = minuend - subtrahend
+                        tries++
+                        if (lv.id == 1 || noBorrowSub(minuend, subtrahend) || tries >= 200) break
+                    }
                     CountQuestion(
                         key = "s6-L${lv.id}-tru-$minuend-$subtrahend",
                         stage = 6,
