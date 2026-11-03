@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.danhvan.tieuhoc.audio.VietnameseTts
 import vn.danhvan.tieuhoc.data.CountQuestion
+import vn.danhvan.tieuhoc.data.DOT_COUNT_FROM
 
 /**
  * Nội dung 7 phần của Bé Tập Đếm. Mỗi phần nhận 1 CountQuestion đã sinh
@@ -118,6 +119,24 @@ private fun EmojiGrid(emoji: String, count: Int, emojiSize: Int = 36) {
     }
 }
 
+/**
+ * Lưới chấm đếm cho số lượng lớn (từ 21 trở lên): mỗi hàng ĐÚNG 10
+ * chấm, hàng cách hàng rõ hơn, để bé đếm theo chục (4 hàng đủ là 40,
+ * cộng hàng lẻ) thay vì đếm từng chấm tới 50 hay 100.
+ */
+@Composable
+private fun DotGrid(count: Int, dotSize: Int = 16) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        for (row in (1..count).chunked(10)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (i in row) {
+                    Text("●", fontSize = dotSize.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
 /** Phần 1: nghe số, chọn đúng số. */
 @Composable
 fun Stage1Content(
@@ -160,11 +179,18 @@ fun Stage2Content(
                     .background(Color.White).padding(12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                EmojiGrid(
-                    emoji = question.emoji,
-                    count = question.targetNumber,
-                    emojiSize = scaledEmojiSize(question.targetNumber, 36),
-                )
+                if (question.targetNumber >= DOT_COUNT_FROM) {
+                    DotGrid(
+                        count = question.targetNumber,
+                        dotSize = if (question.targetNumber <= 50) 18 else 16,
+                    )
+                } else {
+                    EmojiGrid(
+                        emoji = question.emoji,
+                        count = question.targetNumber,
+                        emojiSize = scaledEmojiSize(question.targetNumber, 36),
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(12.dp))
             OptionGrid(question, answered, picked, pick)
@@ -191,7 +217,11 @@ fun Stage3Content(
             Spacer(modifier = Modifier.height(12.dp))
             // Cỡ hình chung cho cả 4 ô, tính theo ô nhiều hình nhất,
             // để 4 ô đều nhau và không ô nào cao quá đẩy đáp án đi.
-            val quadrantEmojiSize = scaledEmojiSize(question.quadrants.maxOrNull() ?: 0, 26)
+            // Nếu ô nhiều nhất đã tới mức dùng chấm thì cả 4 ô đều
+            // dùng chấm cho đồng nhất, không ô emoji ô chấm.
+            val maxQuadrant = question.quadrants.maxOrNull() ?: 0
+            val quadrantEmojiSize = scaledEmojiSize(maxQuadrant, 26)
+            val quadrantUseDots = maxQuadrant >= DOT_COUNT_FROM
             // Khung 4 ô chỉ chiếm tối đa phần còn lại, đáp án và nút
             // nghe luôn ở cuối, không bị hình chèn lên.
             Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f, fill = false).fillMaxWidth()) {
@@ -209,11 +239,18 @@ fun Stage3Content(
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Text("Hình ${idx + 1}", fontSize = 22.sp, fontWeight = FontWeight.Black)
                                     Spacer(modifier = Modifier.height(6.dp))
-                                    EmojiGrid(
-                                        emoji = question.emoji,
-                                        count = question.quadrants.getOrNull(idx) ?: 0,
-                                        emojiSize = quadrantEmojiSize,
-                                    )
+                                    if (quadrantUseDots) {
+                                        DotGrid(
+                                            count = question.quadrants.getOrNull(idx) ?: 0,
+                                            dotSize = 12,
+                                        )
+                                    } else {
+                                        EmojiGrid(
+                                            emoji = question.emoji,
+                                            count = question.quadrants.getOrNull(idx) ?: 0,
+                                            emojiSize = quadrantEmojiSize,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -301,7 +338,7 @@ fun Stage5Content(
     }
 }
 
-/** Phần 6: phép cộng, kết quả luôn dưới 20. */
+/** Phần 6: phép cộng, kết quả luôn trong khoảng của cấp độ. */
 @Composable
 fun Stage6Content(
     question: CountQuestion,

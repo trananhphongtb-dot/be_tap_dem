@@ -43,8 +43,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import vn.danhvan.tieuhoc.R
 import vn.danhvan.tieuhoc.audio.VietnameseTts
+import vn.danhvan.tieuhoc.data.CountLevels
 import vn.danhvan.tieuhoc.data.ProgressStore
 import vn.danhvan.tieuhoc.data.StageInfo
+import vn.danhvan.tieuhoc.data.levelFor
 import kotlin.math.roundToInt
 
 /**
@@ -102,7 +104,9 @@ fun HomeScreen(
     stages: List<StageInfo>,
     store: ProgressStore,
     tts: VietnameseTts,
-    onStage: (Int) -> Unit,
+    selectedLevel: Int,
+    onLevelChange: (Int) -> Unit,
+    onStage: (Int, Int) -> Unit,
     autoOpenStage: Int? = null,
     onAutoOpenShown: () -> Unit = {},
 ) {
@@ -130,7 +134,7 @@ fun HomeScreen(
     LaunchedEffect(autoOpenStage) {
         if (autoOpenStage != null) {
             val s = displayStages.firstOrNull { it.number == autoOpenStage }
-            if (s != null && store.isUnlocked(s.number)) {
+            if (s != null && store.isUnlocked(s.number, selectedLevel)) {
                 selectedStage = s
             }
             onAutoOpenShown()
@@ -154,8 +158,8 @@ fun HomeScreen(
                 val idx = stage.number - 1
                 if (idx !in HomeNodeFracs.indices) continue
                 val frac = HomeNodeFracs[idx]
-                val unlocked = store.isUnlocked(stage.number)
-                val passed = store.isPassed(stage.number)
+                val unlocked = store.isUnlocked(stage.number, selectedLevel)
+                val passed = store.isPassed(stage.number, selectedLevel)
                 // V21: sao mập vàng trùm hết nút, che luôn ổ khóa in sẵn,
                 // số nằm bên trong sao (sao che số in sẵn nên phải có số
                 // code). Chưa mở: chỉ vùng chạm trong suốt, ổ khóa in sẵn
@@ -205,6 +209,38 @@ fun HomeScreen(
                 }
             }
         }
+        // Hàng chọn cấp độ ở mép trên: bé (hoặc bố mẹ) chọn trước
+        // rồi mới bấm vào phần. Sao qua/khóa của các phần đổi theo
+        // cấp độ đang chọn, vì tiến độ lưu riêng từng cấp độ.
+        Box(
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp),
+        ) {
+            Row(
+                modifier = Modifier.shadow(6.dp, RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xE6FFFFFF)).padding(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                for (lv in CountLevels) {
+                    val isSelected = lv.id == selectedLevel
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isSelected) KidGreen else Color.White)
+                            .border(2.dp, if (isSelected) KidGreen else Color(0xFFBDBDBD), RoundedCornerShape(14.dp))
+                            .clickable { onLevelChange(lv.id) }
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            "Cấp ${lv.id}: ${lv.ten} ${lv.min}-${lv.max}",
+                            fontSize = 18.sp, fontWeight = FontWeight.Black,
+                            color = if (isSelected) Color.White else Color.Black,
+                        )
+                    }
+                }
+            }
+        }
     }
 
     // Bảng luật LỚN bằng gỗ, không câu giải thích về giọng đọc.
@@ -224,6 +260,11 @@ fun HomeScreen(
                     .padding(20.dp),
             ) {
                 Text("Phần ${picked.number}: $rule", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Cấp ${selectedLevel}: ${levelFor(selectedLevel).ten} (${levelFor(selectedLevel).min}-${levelFor(selectedLevel).max})",
+                    fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                )
                 Spacer(modifier = Modifier.height(20.dp))
                 Row {
                     BigButton(
@@ -234,7 +275,7 @@ fun HomeScreen(
                     Spacer(modifier = Modifier.size(10.dp))
                     BigButton(
                         text = "Vào thi →",
-                        onClick = { tts.stop(); selectedStage = null; onStage(picked.number) },
+                        onClick = { tts.stop(); selectedStage = null; onStage(picked.number, selectedLevel) },
                         color = KidGreen, modifier = Modifier.weight(1f),
                     )
                 }

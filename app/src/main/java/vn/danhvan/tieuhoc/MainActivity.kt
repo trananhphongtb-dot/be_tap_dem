@@ -21,7 +21,7 @@ import vn.danhvan.tieuhoc.ui.StageScreen
  * Mở app là vào thi luôn: KHÔNG màn hình đăng nhập, KHÔNG tài khoản,
  * KHÔNG Firebase, KHÔNG online, KHÔNG xếp hạng, KHÔNG quảng cáo.
  * Giọng đọc tiếng Việt (vi-VN) dùng chung cho mọi phần. App tập đếm:
- * phạm vi chỉ 1-20, không phép trừ.
+ * 3 cấp độ 1-10 / 11-50 / 51-100, không phép trừ.
  */
 class MainActivity : ComponentActivity() {
     private lateinit var tts: VietnameseTts
@@ -38,8 +38,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             DanhVanTheme {
                 var currentStage by remember { mutableStateOf<Int?>(null) }
+                var currentLevel by remember { mutableStateOf(1) }
                 // Chặng tiếp theo sau khi thi xong: về màn chính và tự mở
                 // bảng luật của chặng đó, không vào thẳng chặng.
+                // Cấp độ giữ nguyên của lần thi vừa xong.
                 var autoOpenStage by remember { mutableStateOf<Int?>(null) }
                 val stage = currentStage
                 if (stage == null) {
@@ -47,7 +49,12 @@ class MainActivity : ComponentActivity() {
                         stages = CountStages,
                         store = store,
                         tts = tts,
-                        onStage = { currentStage = it },
+                        selectedLevel = currentLevel,
+                        onLevelChange = { currentLevel = it },
+                        onStage = { pickedStage, pickedLevel ->
+                            currentStage = pickedStage
+                            currentLevel = pickedLevel
+                        },
                         autoOpenStage = autoOpenStage,
                         onAutoOpenShown = { autoOpenStage = null },
                     )
@@ -58,6 +65,7 @@ class MainActivity : ComponentActivity() {
                         ?: "Phần $stage"
                     StageScreen(
                         stage = stage,
+                        level = currentLevel,
                         stageName = "Phần $stage: $stageName",
                         tts = tts,
                         sounds = sounds,

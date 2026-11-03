@@ -36,6 +36,7 @@ import vn.danhvan.tieuhoc.data.CountGenerator
 import vn.danhvan.tieuhoc.data.CountQuestion
 import vn.danhvan.tieuhoc.data.GameRules
 import vn.danhvan.tieuhoc.data.ProgressStore
+import vn.danhvan.tieuhoc.data.levelFor
 
 /**
  * Khung chung mọi phần của Bé Tập Đếm, giữ khung của Bé Đánh Vần:
@@ -52,6 +53,7 @@ import vn.danhvan.tieuhoc.data.ProgressStore
 @Composable
 fun StageScreen(
     stage: Int,
+    level: Int = 1,
     stageName: String,
     tts: VietnameseTts,
     sounds: AnswerSounds,
@@ -69,10 +71,10 @@ fun StageScreen(
     // Dùng danh sách thường (không phải state) để không ghi state trong lúc
     // compose: qIndex đã là state nên mỗi lần bấm Tiếp/Trước đều compose lại
     // và đọc được câu vừa thêm ngay trong lần compose đó.
-    val questions = remember(stage) { mutableListOf<CountQuestion>() }
-    val usedKeys = remember(stage) { mutableSetOf<String>() }
+    val questions = remember(stage, level) { mutableListOf<CountQuestion>() }
+    val usedKeys = remember(stage, level) { mutableSetOf<String>() }
     if (qIndex >= questions.size) {
-        val q = CountGenerator.generate(stage, usedKeys)
+        val q = CountGenerator.generate(stage, level, usedKeys)
         questions += q
         usedKeys += q.key
     }
@@ -81,7 +83,7 @@ fun StageScreen(
     val canNext = qIndex in answeredIndices
     val canPrev = qIndex > 0
 
-    DisposableEffect(stage) {
+    DisposableEffect(stage, level) {
         onDispose { tts.stop() }
     }
 
@@ -96,7 +98,7 @@ fun StageScreen(
         wrongCount = newWrong
         answeredIndices = answeredIndices + qIndex
         if (newScore >= GameRules.POINTS_TO_PASS) {
-            store.markPassed(stage)
+            store.markPassed(stage, level)
             completed = true
         }
     }
@@ -115,7 +117,7 @@ fun StageScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         StageBackgroundFull(stage)
         Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            ScoreHeader(stageName = "Phần $stage", score = score, onBack = {
+            ScoreHeader(stageName = "Phần $stage - Cấp ${levelFor(level).ten}", score = score, onBack = {
                 tts.stop()
                 onBack()
             })
@@ -148,7 +150,7 @@ fun StageScreen(
     }
 
     if (completed) {
-        val allDone = store.allPassed()
+        val allDone = store.allPassed(level)
         Box(
             modifier = Modifier.fillMaxSize().background(Color(0x80000000)),
             contentAlignment = Alignment.Center,
@@ -165,13 +167,13 @@ fun StageScreen(
                     Text("Chúc mừng bé!", fontSize = 32.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "Bé đã hoàn thành hết 7 phần! Giờ bé quay về màn hình chính chơi lại nhé!",
+                        "Bé đã hoàn thành hết 7 phần ở cấp ${levelFor(level).ten}! Giờ bé quay về màn hình chính chơi lại nhé!",
                         fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     )
                     Spacer(modifier = Modifier.height(20.dp))
                     BigButton(
                         text = "🏠 Về nhà",
-                        onClick = { tts.stop(); store.resetAll(); onBack() },
+                        onClick = { tts.stop(); store.resetLevel(level); onBack() },
                         color = KidBlue, modifier = Modifier.fillMaxWidth(),
                     )
                 } else {
